@@ -212,3 +212,4 @@ movie_details.csv
 token.txt
 *.pkl
 *.faiss
+backup

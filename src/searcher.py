@@ -112,9 +112,9 @@ class Searcher:
         self.faiss_model = FaissIndex(dimension = query_embedding.shape[1]) # Initialize FAISS index with correct dimension
         self.index = self.faiss_model.load_index(INDEX_FILE) # Load pre-built index from file
         faiss.normalize_L2(query_embedding) # Normalize query embedding for cosine similarity
-        
+        self.ids = self.embedder.ids # Load the ids from the embedder
         # STAGE 1: Bi-encoder retrieval (get more candidates for re-ranking)
-        retrieval_k = min(top_k * 3, len(self.embedder.ids))  # Get 3x more candidates for re-ranking
+        retrieval_k = min(top_k * 3, len(self.ids))  # Get 3x more candidates for re-ranking
         
         try:
             # Move index to GPU

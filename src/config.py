@@ -1,7 +1,7 @@
 import torch
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MODEL = 'paraphrase-multilingual-mpnet-base-v2'
+MODEL = 'all-mpnet-base-v2' # 'paraphrase-multilingual-mpnet-base-v2'
 BATCH_SIZE = 128
 PATH_TO_DATA = 'data/movie_details.csv'
 INDEX_FILE = 'data/faiss_index.faiss'
