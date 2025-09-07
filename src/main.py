@@ -2,9 +2,12 @@ from dataloader import DataLoader
 from train import Embedder, FaissIndex
 from searcher import Searcher
 from config import *
+import time
 
-query  = ['crime movie with al pacino and robert de niro']  # Example query
-# results = Searcher().search(query)
+start_time = time.time()
+
+query  = ['movie about superheroes with romantic subplot']  # Example query
+
 results = Searcher().improved_search(query)
 print("\nSearch Results:\n")
 i = 0
@@ -26,4 +29,9 @@ for idx, row in results.iterrows():
     print(f"Cast & Crew: {cast_crew}\n")
     print(f"Popularity: {row['popularity']}")
     print("-----\n")
+
+end_time = time.time()
+total_time = end_time - start_time
+
+print(f"Total search time: {total_time:.2f} seconds")
         
