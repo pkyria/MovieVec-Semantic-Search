@@ -109,13 +109,6 @@ class Searcher:
     
     def improved_search(self, query, top_k = 100):
         """ Search for the top_k nearest neighbors of the query text with cross-encoder re-ranking. """
-        
-        # Initialize cross-encoder if not already done (add this to your __init__ method ideally)
-        if not hasattr(self, 'cross_encoder'):
-            from sentence_transformers import CrossEncoder
-            self.cross_encoder = CrossEncoder(CROSS_ENCODER)
-            print("Cross-encoder loaded for re-ranking")
-        
         query_embedding = self.model.encode(
             query,
             batch_size=BATCH_SIZE,
