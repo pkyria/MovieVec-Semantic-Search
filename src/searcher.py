@@ -10,7 +10,6 @@ class Searcher:
     def __init__(self, index_file=INDEX_FILE):   
         self.faiss = None # Initialize FAISS index variable
         self.index = None # Initialize index variable
-        self.ids = None # Initialize ids variable
         
 
         print("Initializing searcher...")
@@ -154,7 +153,7 @@ class Searcher:
         candidate_texts = []
         for _, row in candidates_df.iterrows():
             # Combine relevant fields into a single text for cross-encoder
-            movie_text = f"{row.get('title', '')} {row.get('overview', '')} {row.get('genres', '')} {row.get('cast_crew', '')}"
+            movie_text = f"{row.get('title', '')} {row.get('overview', '')} {row.get('genres', '')}"
             candidate_texts.append(movie_text.strip())
         
         # Get cross-encoder scores
