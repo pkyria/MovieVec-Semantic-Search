@@ -113,7 +113,7 @@ class Searcher:
         self.index = self.faiss_model.load_index(INDEX_FILE) # Load pre-built index from file
         faiss.normalize_L2(query_embedding) # Normalize query embedding for cosine similarity
         self.ids = self.embedder.ids # Load the ids from the embedder
-        # STAGE 1: Bi-encoder retrieval (get more candidates for re-ranking)
+        # Stage 1: Bi-encoder retrieval (get more candidates for re-ranking)
         retrieval_k = min(top_k * 3, len(self.ids))  # Get 3x more candidates for re-ranking
         
         try:
@@ -140,7 +140,7 @@ class Searcher:
         # Get candidate results for re-ranking
         candidates_df = metadata.iloc[df_indices]
         
-        # STAGE 2: Cross-encoder re-ranking
+        # Stage 2: Cross-encoder re-ranking
         print(f"Re-ranking {len(candidates_df)} candidates with cross-encoder...")
         
         # Prepare query-document pairs for cross-encoder
@@ -160,10 +160,10 @@ class Searcher:
         # Combine bi-encoder and cross-encoder scores
         combined_scores = []
         for i, (bi_distance, cross_score) in enumerate(zip(distances[0], cross_scores)):
-            # Convert FAISS distance to similarity (assuming IndexFlatIP)
+            # Convert FAISS distance to similarity
             bi_similarity = float(bi_distance)
             
-            # Combine scores (you can adjust these weights)
+            # Combine scores with weights (tune these weights as needed)
             combined_score = bi_similarity * 0.3 + float(cross_score) * 0.7
             combined_scores.append(combined_score)
         
@@ -176,13 +176,12 @@ class Searcher:
         # Sort by combined score (descending)
         reranked_df = candidates_df.sort_values('combined_score', ascending=False)
         
-        # Apply your existing rerank_results method on top 50 candidates (to avoid overwhelming it)
+        # Apply existing rerank_results method on top 50 candidates (to avoid overwhelming it)
         top_candidates = reranked_df.head(50)
         final_distances = top_candidates['combined_score'].values
         
         print(f"Cross-encoder re-ranking completed. Top score: {final_distances[0]:.4f}")
         
-        # Use your existing reranking method
         results = self.rerank_results(top_candidates, final_distances).head(10) # Return top 10 results after reranking
         
         return results
