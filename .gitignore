@@ -210,3 +210,5 @@ __marimo__/
 TMDB_movie_dataset_v11.csv
 movie_details.csv
 token.txt
+*.pkl
+*.faiss

@@ -3,8 +3,9 @@ from train import Embedder, FaissIndex
 from searcher import Searcher
 from config import *
 
-query  = ['a sci-fi thriller with space travel and aliens']
-results = Searcher().search(query)
+query  = ['crime movie with al pacino and robert de niro']  # Example query
+# results = Searcher().search(query)
+results = Searcher().improved_search(query)
 print("\nSearch Results:\n")
 i = 0
 for idx, row in results.iterrows():
@@ -21,5 +22,8 @@ for idx, row in results.iterrows():
         cast_crew = 'N/A'
     i += 1
     
-    print(f"Cast & Crew: {cast_crew}\n\n")
+    print(f'"Genres: {row["genres"]}\n')
+    print(f"Cast & Crew: {cast_crew}\n")
+    print(f"Popularity: {row['popularity']}")
+    print("-----\n")
         

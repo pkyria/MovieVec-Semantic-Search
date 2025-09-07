@@ -13,6 +13,20 @@ class Embedder:
     def __init__(self, texts, model_name=MODEL):
         self.model = SentenceTransformer(model_name)
         self.dimension = None # Initialize dimension to None
+        self.ids = self.load_ids() # Load existing IDs if available
+
+    def load_ids(self):
+        """ Load existing IDs from pickle file. """
+        try:
+            with open(PKL_PATH, "rb") as f:
+                data = pickle.load(f)
+                ids= data["ids"]
+                print(f"Loading existing IDs with count: {len(ids)}")
+                return ids
+            
+        except (FileNotFoundError, KeyError):
+            print(f"No existing IDs found.")
+            return None    
 
         
     def encode(self, texts):
@@ -21,9 +35,10 @@ class Embedder:
             with open(PKL_PATH, "rb") as f:
                 data = pickle.load(f)
                 embeddings = data["embeddings"]
+                ids= data["ids"]
                 print(f"Loading existing embeddings with shape: {embeddings.shape[0]},{embeddings.shape[1]}")
                 self.dimension = embeddings.shape[1] # Set the dimension
-                return embeddings.cpu().numpy() # Move embeddings to CPU (if on GPU) and convert to numpy array for FAISS
+                return embeddings, ids
             
         except (FileNotFoundError, KeyError):
             print(f"Generating embeddings for {len(texts)} texts...")
@@ -50,15 +65,12 @@ class Embedder:
                     batch_size=BATCH_SIZE,
                     show_progress_bar=True,
                     device=DEVICE,
-                    normalize_embeddings=True,
-                    convert_to_numpy=True  # Convert to numpy immediately to save GPU memory
+                    convert_to_numpy=True  # Convert to numpy immediately to save GPU memory (moves to CPU)
                 )
                 
-                # Convert to numpy and move to CPU immediately
-                try:
+                # Ensure embeddings are numpy arrays
+                if isinstance(chunk_embeddings, torch.Tensor): # If embeddings are torch tensors, move to CPU and convert to numpy
                     chunk_embeddings = chunk_embeddings.cpu().numpy()
-                except AttributeError:
-                    chunk_embeddings = chunk_embeddings.cpu()  # Already a numpy array
                 
                 all_embeddings.append(chunk_embeddings)
                 
@@ -75,12 +87,9 @@ class Embedder:
                     print(f"Current GPU memory: {current_memory:.2f} GB")
                     torch.cuda.reset_peak_memory_stats()
 
-                
-                
-                all_embeddings.append(emb)
-                print(f"Chunk {i//chunk_size + 1} done.")
             print("All chunks processed.")
-            embeddings = np.vstack(all_embeddings)
+            embeddings = np.vstack(all_embeddings) # Combine all chunk embeddings into a single array
+            ids = np.arange(len(texts)) # Generate IDs for texts
 
             # texts = texts[:39000] # Limit to first 10000 texts for testing
             
@@ -95,11 +104,11 @@ class Embedder:
             self.dimension = embeddings.shape[1] # Set the dimension
             # save everything to pickle
             with open(PKL_PATH, "wb") as f:
-                pickle.dump({"embeddings": embeddings}, f)
+                pickle.dump({"embeddings": embeddings, "ids": ids}, f)
             if isinstance(embeddings, torch.Tensor):   
-                return embeddings.cpu().numpy() # Move embeddings to CPU (if on GPU) and convert to numpy array for FAISS
+                return embeddings.cpu().numpy(), ids # Move embeddings to CPU (if on GPU) and convert to numpy array for FAISS
             else:
-                return embeddings
+                return embeddings, ids
         
         
 
@@ -129,16 +138,14 @@ class FaissIndex:
             self.index_cpu.train(embeddings)
         
 
-        self.index = self.move_to_gpu(self.index_cpu) if DEVICE == 'cuda' else self.index_cpu   # Move to GPU if available
-        self.index.add(embeddings.astype('float32'))  # Ensure embeddings are float32
-        print(f"Total embeddings in index: {self.index.ntotal}")
+        self.index_cpu.add(embeddings.astype('float32'))  # Ensure embeddings are float32
+        print(f"Total embeddings in index: {self.index_cpu.ntotal}")
          
 
     def save_index(self, file_path):
         """ Save the FAISS index to a file. """
         print(f"Saving index to file...")
-        self.index = faiss.index_gpu_to_cpu(self.index) # Move index back to CPU before saving
-        faiss.write_index(self.index, INDEX_FILE)
+        faiss.write_index(self.index_cpu, INDEX_FILE)
         print(f"Index saved to {INDEX_FILE}")
 
     def load_index(self, file_path):
@@ -150,14 +157,15 @@ class FaissIndex:
             print(f"Index file {INDEX_FILE} does not exist.")
             return
         else: # Load the index from file 
-            self.index_cpu = faiss.read_index(INDEX_FILE)
+            self.index_cpu = faiss.read_index(INDEX_FILE, faiss.IO_FLAG_MMAP) # Memory-map the index file
             print("Index size (ntotal):", self.index_cpu.ntotal)
+            self.index = self.index_cpu
 
-            # Move to GPU if available
-            if DEVICE == 'cuda':
-                self.index = self.move_to_gpu(self.index_cpu)
-            else:
-                self.index = self.index_cpu
+            # # Move to GPU if available (uncomment if fixed)
+            # if DEVICE == 'cuda':
+            #     self.index = self.move_to_gpu(self.index_cpu)
+            # else:
+            #     self.index = self.index_cpu
 
         if self.index:
             print(f"Index loaded from {INDEX_FILE}")

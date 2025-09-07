@@ -15,9 +15,11 @@ class DataLoader:
             # Combine relevant text fields into a single text field for embedding
             self.df['text'] = self.df['title'].fillna("").astype(str)  # start with title
             # Fill NaNs with empty strings and ensure all are strings
-            for col in ["overview", "keywords", "genres", "cast_crew"]:
+            for col in ["overview", "keywords"]:
                 self.df[col] = self.df[col].fillna("").astype(str)   # ensure all strings
                 self.df["text"] = self.df["text"] + ". " + self.df[col]
+            self.df['text'] += "Genres: " + self.df['genres'].fillna("").astype(str) + ". "  # add genres info
+            self.df['text'] += "Starring: " + self.df['cast_crew'].fillna("").astype(str)+   ". " # add cast and crew info
             data = self.df['text'].tolist() # Convert to list for embedding
 
             print(f"Loaded {len(data)} movie records.")
