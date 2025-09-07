@@ -2,24 +2,45 @@ import faiss, numpy as np
 from dataloader import DataLoader
 from config import *
 from train import Embedder, FaissIndex
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from sentence_transformers import CrossEncoder
 import os.path
-from sklearn.preprocessing import MinMaxScaler
+import time
 
 class Searcher:
-    def __init__(self, index_file=INDEX_FILE):
-        self.dataloader = DataLoader() # Initialize DataLoader
-        self.data = self.dataloader.load_data() # Load data in list format using DataLoader
-        self.embedder = Embedder(self.data) # Initialize embedder with data (to load model)
-        self.model = self.embedder.model # Access the SentenceTransformer model
-        self.ids = None
-        
+    def __init__(self, index_file=INDEX_FILE):   
         self.faiss = None # Initialize FAISS index variable
         self.index = None # Initialize index variable
-        # Initialize embedder and index
+        
+
+        print("Initializing searcher...")
+        
+        # Load everything once during initialization
+        
+        self.dataloader = DataLoader()
+        self.data = self.dataloader.load_data() # Load data in list format using DataLoader
+        self.embedder = Embedder(self.data)
+        self.model = self.embedder.model # Access the SentenceTransformer model
+        
+        # PRE-LOAD the FAISS index to avoid loading delays during search
+        print("Loading FAISS index...")
+        start = time.time()
+        self.faiss_model = FaissIndex(dimension=768)
         if not os.path.exists(INDEX_FILE): # If index file does not exist, build the index
             print(f"Index file {INDEX_FILE} does not exist. Building the index...")
             self.build_index() # Build the index from data (This will also initialize FAISS index and save it to file)
+        self.index = self.faiss_model.load_index(INDEX_FILE)
+        print(f"Index loaded in {time.time() - start:.2f}s")
+        
+        # Pre-load cross-encoder if using
+        if hasattr(self, 'cross_encoder') or True:  # Enable cross-encoder
+            self.cross_encoder = CrossEncoder(CROSS_ENCODER)
+            print("Cross-encoder loaded")
+        
+        # Pre-load other data
+        self.ids = self.embedder.ids
+        self.metadata = self.dataloader.df
+        
+        print("Searcher initialized and ready...")
 
          
 
@@ -53,8 +74,6 @@ class Searcher:
                     convert_to_numpy=True  # Convert to numpy immediately to save GPU memory (moves to CPU)
                 ) # Encode the query text to get its embedding (Generate/load existing embedding)
         
-        self.faiss_model = FaissIndex(dimension = query_embedding.shape[1]) # Initialize FAISS index with correct dimension
-        self.index = self.faiss_model.load_index(INDEX_FILE) # Load pre-built index from file
         faiss.normalize_L2(query_embedding)  # Normalize query embedding for cosine similarity
 
         try:
@@ -68,8 +87,6 @@ class Searcher:
 
         
         
-        self.ids = self.embedder.ids # Load the ids from the embedder
-        
         for i, q in enumerate(query):
             print(f"\n🔎 Query: {q}")
             print("Indices:", indices[i])
@@ -79,11 +96,8 @@ class Searcher:
         faiss_results = indices[0]
         df_indices = [self.ids[idx] for idx in faiss_results]
 
-        metadata = self.dataloader.df # Get the full dataframe from DataLoader
-        # results = metadata.loc[metadata['index'].isin(indices[0])] # Retrieve metadata for the found indices
-
         # Rerank results based on similarity and popularity
-        results = self.rerank_results(metadata.iloc[df_indices], distances[0]).head(10)  # Return top 10 results after reranking
+        results = self.rerank_results(self.metadata.iloc[df_indices], distances[0]).head(10)  # Return top 10 results after reranking
         # results = metadata.iloc[df_indices].head(10)  # Return all results without reranking for now
 
         return results
@@ -94,13 +108,6 @@ class Searcher:
     
     def improved_search(self, query, top_k = 100):
         """ Search for the top_k nearest neighbors of the query text with cross-encoder re-ranking. """
-        
-        # Initialize cross-encoder if not already done (add this to your __init__ method ideally)
-        if not hasattr(self, 'cross_encoder'):
-            from sentence_transformers import CrossEncoder
-            self.cross_encoder = CrossEncoder(CROSS_ENCODER)
-            print("Cross-encoder loaded for re-ranking")
-        
         query_embedding = self.model.encode(
             query,
             batch_size=BATCH_SIZE,
@@ -109,11 +116,9 @@ class Searcher:
             convert_to_numpy=True # Convert to numpy immediately to save GPU memory (moves to CPU)
         ) # Encode the query text to get its embedding (Generate/load existing embedding)
         
-        self.faiss_model = FaissIndex(dimension = query_embedding.shape[1]) # Initialize FAISS index with correct dimension
-        self.index = self.faiss_model.load_index(INDEX_FILE) # Load pre-built index from file
+        
         faiss.normalize_L2(query_embedding) # Normalize query embedding for cosine similarity
-        self.ids = self.embedder.ids # Load the ids from the embedder
-        # Stage 1: Bi-encoder retrieval (get more candidates for re-ranking)
+        # STAGE 1: Bi-encoder retrieval (get more candidates for re-ranking)
         retrieval_k = min(top_k * 3, len(self.ids))  # Get 3x more candidates for re-ranking
         
         try:
@@ -125,7 +130,6 @@ class Searcher:
             print(f"Error moving index to GPU: {e}. Falling back to CPU search.")
             distances, indices = self.index.search(query_embedding, retrieval_k)
         
-        self.ids = self.embedder.ids # Load the ids from the embedder
         
         for i, q in enumerate(query):
             print(f"\n🔎 Query: {q}")
@@ -135,10 +139,9 @@ class Searcher:
         # Translate FAISS indices back to dataframe indices
         faiss_results = indices[0]
         df_indices = [self.ids[idx] for idx in faiss_results]
-        metadata = self.dataloader.df # Get the full dataframe from DataLoader
         
         # Get candidate results for re-ranking
-        candidates_df = metadata.iloc[df_indices]
+        candidates_df = self.metadata.iloc[df_indices]
         
         # Stage 2: Cross-encoder re-ranking
         print(f"Re-ranking {len(candidates_df)} candidates with cross-encoder...")
@@ -149,7 +152,7 @@ class Searcher:
         # Create text representations of your movies (adjust field names as needed)
         candidate_texts = []
         for _, row in candidates_df.iterrows():
-            # Combine relevant fields - adjust these field names to match your dataframe
+            # Combine relevant fields into a single text for cross-encoder
             movie_text = f"{row.get('title', '')} {row.get('overview', '')} {row.get('genres', '')}"
             candidate_texts.append(movie_text.strip())
         
@@ -163,7 +166,7 @@ class Searcher:
             # Convert FAISS distance to similarity
             bi_similarity = float(bi_distance)
             
-            # Combine scores with weights (tune these weights as needed)
+            # Combine scores
             combined_score = bi_similarity * 0.3 + float(cross_score) * 0.7
             combined_scores.append(combined_score)
         
@@ -182,6 +185,7 @@ class Searcher:
         
         print(f"Cross-encoder re-ranking completed. Top score: {final_distances[0]:.4f}")
         
+        # Use existing reranking method
         results = self.rerank_results(top_candidates, final_distances).head(10) # Return top 10 results after reranking
         
         return results
@@ -210,3 +214,35 @@ class Searcher:
         results_df = results_df.sort_values("score", ascending=False)
         
         return results_df  # Return top 8 results
+    
+    def diagnose_performance(self, query):
+        timings = {}
+        
+        # 1. Model encoding
+        start = time.time()
+        query_embedding = self.model.encode(query)
+        timings['encoding'] = time.time() - start
+        
+        # 2. Index loading
+        start = time.time()
+        if not hasattr(self, 'index') or self.index is None:
+            self.index = faiss.read_index(INDEX_FILE)
+        timings['index_loading'] = time.time() - start
+        
+        # 3. FAISS search
+        start = time.time()
+        scores, indices = self.index.search(query_embedding.astype('float32'), 100)
+        timings['faiss_search'] = time.time() - start
+        
+        # 4. Cross-encoder (if used)
+        start = time.time()
+        # Your cross-encoder code
+        timings['cross_encoder'] = time.time() - start
+        
+        # Print diagnosis
+        total = sum(timings.values())
+        print("Performance Diagnosis:")
+        for stage, time_taken in timings.items():
+            print(f"  {stage}: {time_taken:.2f}s ({time_taken/total*100:.1f}%)")
+        
+        return timings
