@@ -1,0 +1,15 @@
+# Treat Jupyter notebooks as Python
+*.ipynb linguist-language=Python
+
+# Ignore data files
+*.csv linguist-detectable=false
+*.json linguist-detectable=false
+
+# Ignore configs / docs
+*.md linguist-detectable=false
+*.yml linguist-detectable=false
+*.yaml linguist-detectable=false
+
+# Ignore logs
+*.log linguist-detectable=false
+
