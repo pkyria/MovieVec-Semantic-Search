@@ -19,6 +19,7 @@ decorator==5.2.1
 defusedxml==0.7.1
 executing==2.2.0
 faiss-gpu-cu12==1.12.0
+fastapi
 fastjsonschema==2.21.2
 filelock==3.19.1
 fonttools==4.59.1
@@ -140,6 +141,7 @@ typing_extensions==4.14.1
 tzdata==2025.2
 uri-template==1.3.0
 urllib3==2.5.0
+uvicorn
 wcwidth==0.2.13
 webcolors==24.11.1
 webencodings==0.5.1

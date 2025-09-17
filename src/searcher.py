@@ -106,7 +106,7 @@ class Searcher:
 
 
     
-    def improved_search(self, query, top_k = 100):
+    def improved_search(self, query, top_k = 100, top_n=10):
         """ Search for the top_k nearest neighbors of the query text with cross-encoder re-ranking. """
         query_embedding = self.model.encode(
             query,
@@ -186,7 +186,7 @@ class Searcher:
         print(f"Cross-encoder re-ranking completed. Top score: {final_distances[0]:.4f}")
         
         # Use existing reranking method
-        results = self.rerank_results(top_candidates, final_distances).head(10) # Return top 10 results after reranking
+        results = self.rerank_results(top_candidates, final_distances).head(top_n) # Return top n results after reranking
         
         return results
 
