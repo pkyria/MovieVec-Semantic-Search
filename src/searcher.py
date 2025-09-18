@@ -186,11 +186,13 @@ class Searcher:
         print(f"Cross-encoder re-ranking completed. Top score: {final_distances[0]:.4f}")
         
         # Use existing reranking method
-        # results = self.rerank_results(top_candidates, final_distances).head(top_n) # Return top n results after reranking
+        results = self.rerank_results(top_candidates, final_distances).head(top_n) # Return top n results after reranking
         
-        return top_candidates.head(top_n)  # Return top n results after cross-encoder reranking only
+        # return top_candidates.head(top_n)  # Return top n results after cross-encoder reranking only
 
-    def rerank_results(self, results_df, similarities, alpha=0.1, beta=0.6):
+        return results
+
+    def rerank_results(self, results_df, similarities, alpha=0.1, beta=0.2):
         """
         results_df: dataframe slice of FAISS results
         distances: array of FAISS distances for these results
