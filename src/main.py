@@ -71,7 +71,7 @@ def api_mode():
 def main():
     """Main entry point with argument parsing"""
     parser = argparse.ArgumentParser(
-        description="🎬 Movie Semantic Search Engine",
+        description="Movie Semantic Search Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
