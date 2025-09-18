@@ -30,6 +30,7 @@ movie-semantic-search/
 │   ├── movie_details.csv       # Main dataset (download required)
 │   └── TMDB_movie_dataset_v11  # TMDB dataset (Kaggle)
 ├── src/
+│   ├── app.py                  # API Backend & Frontend Configuration
 │   ├── config.py               # Configuration settings
 │   ├── dataloader.py           # Data loading and preprocessing
 │   ├── main.py                 # Main application entry point
@@ -85,16 +86,52 @@ movie-semantic-search/
 ### Usage
 
 1. **Run Search queries and build the search index** (one-time initialization of embeddings and faiss index)
+
+**CLI** (Run locally):
    ```bash
-   cd src
-   python main.py
+   python src/main.py --cli
    ```
+**API** (Run on web interface in API mode):
+   ```bash
+   python src/main.py --api
+   ```
+
+**Output**:
+```
+Starting Movie Search API on port 8000...
+INFO:     Started server process [414145]
+INFO:     Waiting for application startup.
+INFO:app:Starting Movie Search API...
+Initializing searcher...
+Loading data...
+Loaded 869634 movie records.
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cuda:0
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-mpnet-base-v2
+Loading existing IDs with count: 869634
+Loading FAISS index...
+Initializing FAISS index with dimension: 768
+Loading index from file...
+Index size (ntotal): 869634
+Index loaded from data/faiss_index.faiss
+Index loaded in 61.13s
+INFO:sentence_transformers.cross_encoder.CrossEncoder:Use pytorch device: cuda:0
+Cross-encoder loaded
+Searcher initialized and ready...
+INFO:app:Search engine loaded in 149.66s
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
 
 
 2. **Interactive search example** (Search queries once engine is running. Type 'quit' to terminate the process.)
+
+**CLI**:
    ```
    Search: crime movie with robert de niro and al pacino
    ```
+**API**:
+<img width="1382" height="945" alt="image" src="https://github.com/user-attachments/assets/a2a4edc9-f3bf-4cbb-8524-3b1c7aee3a11" />
+
 
 ## ⚙️ Configuration
 
@@ -231,6 +268,12 @@ INDEX_METRIC = 'IndexFlatIP'
 ## 🔍 Interactive Search Examples
 
 ### Example 1: Cast-Based Search
+
+**API**:
+<img width="1382" height="945" alt="image" src="https://github.com/user-attachments/assets/4c914ddc-b0c5-4baa-87b9-7d846945486e" />
+
+
+**CLI**:
 ```python
 ...
 
